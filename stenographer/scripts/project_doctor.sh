@@ -79,6 +79,9 @@ done
 # Bibliography (default template uses biblatex+biber).
 require_cmd biber || missing+=("biber")
 
+# Python project manager (required for dependency bootstrap).
+require_cmd uv || missing+=("uv")
+
 # Markdown linter requirement.
 require_cmd rumdl || missing+=("rumdl")
 
@@ -102,6 +105,17 @@ if [[ "${#missing[@]}" -gt 0 ]]; then
           say "- rumdl: cargo install rumdl"
         else
           say "- rumdl: $(install_hint rumdl)  (or install Rust + cargo install rumdl)"
+        fi
+        ;;
+      uv)
+        if [[ "$OS" == "darwin" ]]; then
+          if command -v brew >/dev/null 2>&1; then
+            say "- uv: brew install uv"
+          else
+            say "- uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
+          fi
+        else
+          say "- uv: curl -LsSf https://astral.sh/uv/install.sh | sh"
         fi
         ;;
       *) say "- ${c}: $(install_hint "$c")" ;;

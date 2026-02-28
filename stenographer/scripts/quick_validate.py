@@ -102,6 +102,7 @@ def validate() -> None:
         skill_dir / "scripts" / "init_steno_paper.py",
         skill_dir / "scripts" / "project_add_reference.py",
         skill_dir / "scripts" / "project_doctor.sh",
+        skill_dir / "scripts" / "project_status.py",
     ]:
         if not required.exists():
             fail(f"Missing required resource: {required}")

@@ -64,7 +64,7 @@ Use the project helper script created by the initializer:
 
 Notes:
 
-- Use `--deps full` when you want best extraction fidelity (creates `.stenographer_venv/` in project root).
+- Use `--deps full` when you want best extraction fidelity (runs `uv sync --extra full` and creates/uses `.venv/` in project root).
 - Use `--title` if the source title is messy; this controls human-readable filenames.
 - Cite in Markdown as `[@bibkey]` so LaTeX can render `\\cite{bibkey}`.
 - In multi-language projects, run the helper against the specific LaTeX variant using `--latex-dir`, e.g. `--latex-dir paper_en_latex`.
@@ -85,6 +85,62 @@ Notes:
    - A 3–7 bullet **Normalized Notes** summary
    - A list of **Claims to verify** (each with an ID like `C1`, `C2`)
    - 1–3 **Clarifying questions** that unblock structure or verification
+
+## Python environment (uv)
+
+Each stenographer project is bootstrapped as a local `uv`-managed Python project:
+- Dependencies live in `pyproject.toml` as optional extras (`basic`, `full`).
+- The virtualenv lives at `.venv/`.
+
+For best reference capture fidelity up front, run:
+- `uv sync --extra full`
+
+## Realtime update loop (dictation → files → preview)
+
+Goal: after each user dictation chunk, update *all* deliverables so the user can immediately inspect the latest `*.md` and `*.pdf` if they want.
+
+### A) Start live compilation (recommended)
+
+For each language variant you are actively editing, run the watcher:
+- Single language: `./paper_latex/scripts/watch.sh paper`
+- Multi-language: run one watcher per variant, e.g.:
+  - `./paper_en_latex/scripts/watch.sh paper_en`
+  - `./paper_ru_latex/scripts/watch.sh paper_ru`
+
+In watch mode, any change to `<stem>.md` is synced into `*_latex/src/` and triggers rebuild; the resulting PDF is copied next to the Markdown as `../<stem>.pdf`.
+
+### B) Dictation turn protocol (every time the user speaks)
+
+For each dictation chunk:
+1. Update the appropriate Markdown draft file(s) (`<stem>.md`).
+2. Ensure Markdown remains lint-clean (required): `rumdl check .` (the watch/build scripts also run this).
+3. Ensure LaTeX sync is up to date (automatic in watch mode):
+   - Regenerates `*_latex/src/{meta,abstract,content}.tex` from `<stem>.md`.
+4. Ensure the PDF artifact is current:
+   - Watch mode: continuously updated and copied to `../<stem>.pdf`.
+   - Build-on-demand: run `./<stem>_latex/scripts/build.sh <stem>`.
+5. Offer immediate preview:
+   - If the user wants to review outputs now, point them to the updated paths: `<stem>.md` and `<stem>.pdf` (and ask which one to open/inspect).
+
+### C) If the user asks to “show the PDF now”
+
+Confirm which language variant they mean (if multiple), then provide the exact path to the freshest `*.pdf` next to the corresponding `*.md`. Keep the loop tight: review → edit → rerender → recheck.
+
+## Resume in a new session (recover current state)
+
+It is common to reconnect mid-project from a fresh chat session. Use this protocol to quickly recover the current state and continue without guessing.
+
+1. Identify the project root (the folder that contains `pyproject.toml`, `References/`, and one or more `*_latex/` folders).
+2. Run the status helper (created by the initializer):
+   - `./status.py`
+   - If it does not exist (older projects), run: `python3 ~/.codex/skills/stenographer/scripts/project_status.py .`
+3. Based on the report:
+   - Restart watch mode for the active language variant(s) so PDFs update live.
+   - If linting fails, fix Markdown issues first (`rumdl check .`) before continuing.
+4. Ask the user what they want to review now:
+   - The current draft Markdown (`<stem>.md`)
+   - The current PDF (`<stem>.pdf`)
+   - The outline/evidence tables (`outline.md`, `evidence.md`)
 
 ## Workflow (dictation → paper)
 

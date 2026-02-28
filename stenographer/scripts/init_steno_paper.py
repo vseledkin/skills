@@ -140,8 +140,10 @@ lint:
         index_md.write_text(
             "# References (local archive)\n\n"
             "This folder stores a local, human-readable copy of every cited source.\n"
+            "\n"
             "- For web pages: a best-effort Markdown capture (`.md`).\n"
-            "- For PDFs: both the original PDF (`.pdf`) and an extracted Markdown (`.md`).\n\n"
+            "- For PDFs: both the original PDF (`.pdf`) and an extracted Markdown (`.md`).\n"
+            "\n"
             "## Index\n\n",
             encoding="utf-8",
         )
@@ -164,17 +166,56 @@ exclude = [
 
     # Stenographer build artifacts / caches
     "**/*_latex/build/**",
-    ".stenographer_venv/**",
+    ".venv/**",
     "References/.tmp/**",
     ".rumdl_cache/**",
 ]
 respect-gitignore = true
+
+[MD013]
+line-length = 120
+code-blocks = false
+tables = false
+headings = true
 """,
             encoding="utf-8",
         )
         print(f"[OK] Created {rumdl_cfg}")
     else:
         print(f"[SKIP] Exists {rumdl_cfg}")
+
+    # Create a uv-managed local Python project (pyproject.toml)
+    pyproject = base / "pyproject.toml"
+    if not pyproject.exists():
+        project_name = f"stenographer-{args.name}"
+        pyproject.write_text(
+            f"""\
+[project]
+name = "{project_name}"
+version = "0.1.0"
+description = "Local helper dependencies for stenographer (reference capture and conversion)."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+basic = [
+  "beautifulsoup4",
+  "markdownify",
+]
+full = [
+  "trafilatura",
+  "beautifulsoup4",
+  "markdownify",
+  "pypdf",
+  "pdfplumber",
+  "pymupdf",
+]
+""",
+            encoding="utf-8",
+        )
+        print(f"[OK] Created {pyproject}")
+    else:
+        print(f"[SKIP] Exists {pyproject}")
 
     # Create a project doctor script (tooling preflight, OS/shell-aware suggestions)
     doctor_sh = base / "doctor.sh"
@@ -185,6 +226,16 @@ respect-gitignore = true
         print(f"[OK] Created {doctor_sh}")
     else:
         print(f"[SKIP] Exists {doctor_sh}")
+
+    # Create a project status helper (recover state in a new session)
+    status_py = base / "status.py"
+    if not status_py.exists():
+        src = skill_dir / "scripts" / "project_status.py"
+        status_py.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        status_py.chmod(0o755)
+        print(f"[OK] Created {status_py}")
+    else:
+        print(f"[SKIP] Exists {status_py}")
 
     # Drop helper scripts into the LaTeX folder (so they travel with the project)
     for stem, _lang in variants:

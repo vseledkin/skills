@@ -28,8 +28,20 @@ def slugify(text: str) -> str:
     return (text[:160] if text else "reference").strip("-") or "reference"
 
 
-def run(cmd: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+def run(
+    cmd: list[str],
+    *,
+    check: bool = True,
+    cwd: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        cmd,
+        check=check,
+        cwd=str(cwd) if cwd else None,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
 
 
 def fetch_bytes(url: str) -> tuple[bytes, str]:
@@ -74,12 +86,17 @@ def append_index(refs_dir: Path, title: str, slug: str, url: str, bibkey: str | 
     index = refs_dir / "index.md"
     if not index.exists():
         index.write_text("# References (local archive)\n\n## Index\n\n", encoding="utf-8")
-    line = f"- [{title}](./{slug}.md) — {url}"
+
+    # Ensure the list is preceded by a blank line.
+    existing = index.read_text(encoding="utf-8", errors="ignore")
+    prefix = "" if existing.endswith("\n\n") else "\n"
+
+    line = f"- [{title}](./{slug}.md) — <{url}>"
     if bibkey:
         line += f" (`{bibkey}`)"
     line += f" — retrieved {now_utc_iso()}\n"
     with index.open("a", encoding="utf-8") as f:
-        f.write(line)
+        f.write(prefix + line)
 
 
 def extract_pdf_to_text(pdf_path: Path) -> str:
@@ -228,17 +245,22 @@ def update_bib(latex_dir: Path, bibkey: str, title: str, url: str, accessed_iso:
 def ensure_deps(project_root: Path, level: str) -> None:
     if level == "none":
         return
-    venv = project_root / ".stenographer_venv"
-    if not venv.exists():
-        run([sys.executable, "-m", "venv", str(venv)])
-    py = venv / "bin" / "python"
-    pkgs: list[str] = []
-    if level in ("basic", "full"):
-        pkgs += ["beautifulsoup4", "markdownify"]
-    if level == "full":
-        pkgs += ["trafilatura", "pypdf", "pdfplumber", "pymupdf"]
-    run([str(py), "-m", "pip", "install", "--quiet", *pkgs])
-    os.execv(str(py), [str(py), *sys.argv])
+    if not shutil.which("uv"):
+        raise SystemExit(
+            "[FAIL] uv is required to install optional dependencies. Install it (macOS: `brew install uv`, or `curl -LsSf https://astral.sh/uv/install.sh | sh`)."
+        )
+
+    # Ensure a uv-managed virtualenv exists and install extras declared in pyproject.toml.
+    # This creates/updates `.venv/` at the project root by default.
+    extra = level
+    run(["uv", "sync", "--quiet", "--extra", extra], cwd=project_root)
+
+    py = project_root / ".venv" / "bin" / "python"
+    if not py.exists():
+        raise SystemExit("[FAIL] uv sync did not create .venv/bin/python as expected.")
+    env = os.environ.copy()
+    env["STENOGRAPHER_DEPS_READY"] = "1"
+    os.execve(str(py), [str(py), *sys.argv], env)
 
 
 def main() -> int:
@@ -256,14 +278,14 @@ def main() -> int:
         "--deps",
         choices=["none", "basic", "full"],
         default="none",
-        help="Install optional deps into .stenographer_venv (best fidelity: full).",
+        help="Install optional deps via uv into .venv (best fidelity: full).",
     )
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parents[2]
     refs_dir, tmp_dir = ensure_dirs(project_root)
 
-    if args.deps != "none":
+    if args.deps != "none" and os.environ.get("STENOGRAPHER_DEPS_READY") != "1":
         ensure_deps(project_root, args.deps)
 
     body, content_type = fetch_bytes(args.url)
@@ -331,4 +353,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
