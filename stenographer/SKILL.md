@@ -89,11 +89,27 @@ Notes:
 ## Python environment (uv)
 
 Each stenographer project is bootstrapped as a local `uv`-managed Python project:
+
 - Dependencies live in `pyproject.toml` as optional extras (`basic`, `full`).
 - The virtualenv lives at `.venv/`.
 
 For best reference capture fidelity up front, run:
+
 - `uv sync --extra full`
+
+## Language correctness (template translation)
+
+Rule: each language variant must be fully written in its target language, including headings and boilerplate text.
+
+Bootstrap behavior:
+
+- The initializer creates each Markdown draft from an English template.
+- If the user requests a non-English language, the initializer adds a note at the top of `<stem>.md` instructing you to translate the template into that language before continuing.
+
+Ongoing behavior:
+
+- When editing a non-English variant, keep all newly added prose in that language.
+- The PDF inherits section titles and content from the Markdown via the sync step, so language correctness in Markdown implies language correctness in PDF.
 
 ## Realtime update loop (dictation → files → preview)
 
@@ -102,6 +118,7 @@ Goal: after each user dictation chunk, update *all* deliverables so the user can
 ### A) Start live compilation (recommended)
 
 For each language variant you are actively editing, run the watcher:
+
 - Single language: `./paper_latex/scripts/watch.sh paper`
 - Multi-language: run one watcher per variant, e.g.:
   - `./paper_en_latex/scripts/watch.sh paper_en`
@@ -112,6 +129,7 @@ In watch mode, any change to `<stem>.md` is synced into `*_latex/src/` and trigg
 ### B) Dictation turn protocol (every time the user speaks)
 
 For each dictation chunk:
+
 1. Update the appropriate Markdown draft file(s) (`<stem>.md`).
 2. Ensure Markdown remains lint-clean (required): `rumdl check .` (the watch/build scripts also run this).
 3. Ensure LaTeX sync is up to date (automatic in watch mode):

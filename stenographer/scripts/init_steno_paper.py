@@ -36,7 +36,8 @@ def main() -> int:
         variants.append((args.name, langs[0] if langs else ""))
 
     skill_dir = Path(__file__).resolve().parents[1]
-    md_template = skill_dir / "assets" / "paper_template.md"
+    md_template_en = skill_dir / "assets" / "paper_template_en.md"
+    md_template_fallback = skill_dir / "assets" / "paper_template.md"
     latex_template = skill_dir / "assets" / "latex_project_template"
 
     for stem, lang in variants:
@@ -44,11 +45,22 @@ def main() -> int:
         latex_dir = base / f"{stem}_latex"
 
         if not md_path.exists():
-            shutil.copyfile(md_template, md_path)
-            # Add a lightweight language hint at the top for multi-lang setups.
-            if multi_lang and lang:
+            lang_norm = (lang or "").strip().lower()
+            template = md_template_en if md_template_en.exists() else md_template_fallback
+
+            shutil.copyfile(template, md_path)
+
+            # Add a language hint at the top so a new session can resume correctly.
+            if lang_norm:
                 original = md_path.read_text(encoding="utf-8")
-                md_path.write_text(f"<!-- language: {lang} -->\n\n{original}", encoding="utf-8")
+                if lang_norm not in ("en", "eng", "english"):
+                    prefix = (
+                        f"<!-- language: {lang_norm} -->\n"
+                        f"<!-- NOTE: Translate this template content into '{lang_norm}' before continuing. -->\n\n"
+                    )
+                else:
+                    prefix = f"<!-- language: {lang_norm} -->\n\n"
+                md_path.write_text(prefix + original, encoding="utf-8")
             print(f"[OK] Created {md_path}")
         else:
             print(f"[SKIP] Exists {md_path}")
@@ -144,7 +156,7 @@ lint:
             "- For web pages: a best-effort Markdown capture (`.md`).\n"
             "- For PDFs: both the original PDF (`.pdf`) and an extracted Markdown (`.md`).\n"
             "\n"
-            "## Index\n\n",
+            "## Index\n",
             encoding="utf-8",
         )
         print(f"[OK] Created {index_md}")

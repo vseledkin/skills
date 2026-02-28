@@ -93,6 +93,7 @@ def validate() -> None:
 
     for required in [
         skill_dir / "assets" / "paper_template.md",
+        skill_dir / "assets" / "paper_template_en.md",
         skill_dir / "assets" / "latex_project_template" / "src" / "main.tex",
         skill_dir / "assets" / "latex_project_template" / "src" / "preamble.tex",
         skill_dir / "assets" / "latex_project_template" / "src" / "latexmkrc",
