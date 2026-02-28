@@ -1,0 +1,14 @@
+# latexmk configuration for this project
+
+$pdf_mode = 1;
+$interaction = "nonstopmode";
+$halt_on_error = 1;
+$silent = 1;
+
+# Prefer LuaLaTeX for modern fonts/microtype; fall back handled by user's TeX install.
+$pdflatex = "lualatex -file-line-error -synctex=1 %O %S";
+
+# Use biber for biblatex
+$bibtex = "biber %O %B";
+
+# Put aux/build artifacts in build/ (set via -outdir in scripts)
