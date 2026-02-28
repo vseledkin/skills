@@ -1,4 +1,4 @@
 interface:
   display_name: "Stenographer"
-  short_description: "Dictation → статья (с источниками)"
-  default_prompt: "Use $stenographer to turn my dictated brainstorm into a научная статья draft with verified citations."
+  short_description: "Dictation → paper w/ citations"
+  default_prompt: "Use $stenographer to turn my dictated brainstorm into a scientific paper draft with verified citations (and a synced LaTeX/PDF output)."

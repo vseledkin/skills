@@ -16,38 +16,90 @@ def main() -> int:
         default=".",
         help="Target directory where <name>.md and <name>_latex/ will be created (default: current dir)",
     )
+    parser.add_argument(
+        "--langs",
+        default="",
+        help="Comma-separated language tags (e.g. en,ru). If multiple are provided, create one full variant per language with language tags in filenames.",
+    )
     args = parser.parse_args()
 
     base = Path(args.dir).resolve()
     base.mkdir(parents=True, exist_ok=True)
 
-    md_path = base / f"{args.name}.md"
-    latex_dir = base / f"{args.name}_latex"
+    langs = [s.strip() for s in args.langs.split(",") if s.strip()]
+    multi_lang = len(langs) > 1
+    variants: list[tuple[str, str]] = []
+    if multi_lang:
+        for lang in langs:
+            variants.append((f"{args.name}_{lang}", lang))
+    else:
+        variants.append((args.name, langs[0] if langs else ""))
 
     skill_dir = Path(__file__).resolve().parents[1]
     md_template = skill_dir / "assets" / "paper_template.md"
     latex_template = skill_dir / "assets" / "latex_project_template"
 
-    if not md_path.exists():
-        shutil.copyfile(md_template, md_path)
-        print(f"[OK] Created {md_path}")
-    else:
-        print(f"[SKIP] Exists {md_path}")
+    for stem, lang in variants:
+        md_path = base / f"{stem}.md"
+        latex_dir = base / f"{stem}_latex"
 
-    if not latex_dir.exists():
-        shutil.copytree(latex_template, latex_dir)
-        print(f"[OK] Created {latex_dir}")
-    else:
-        print(f"[SKIP] Exists {latex_dir}")
+        if not md_path.exists():
+            shutil.copyfile(md_template, md_path)
+            # Add a lightweight language hint at the top for multi-lang setups.
+            if multi_lang and lang:
+                original = md_path.read_text(encoding="utf-8")
+                md_path.write_text(f"<!-- language: {lang} -->\n\n{original}", encoding="utf-8")
+            print(f"[OK] Created {md_path}")
+        else:
+            print(f"[SKIP] Exists {md_path}")
 
-    # Ensure expected build folder exists
-    (latex_dir / "build").mkdir(parents=True, exist_ok=True)
+        if not latex_dir.exists():
+            shutil.copytree(latex_template, latex_dir)
+            print(f"[OK] Created {latex_dir}")
+        else:
+            print(f"[SKIP] Exists {latex_dir}")
+
+        # Ensure expected build folder exists
+        (latex_dir / "build").mkdir(parents=True, exist_ok=True)
 
     # Write a small Makefile for convenience
     makefile = base / "Makefile"
     if not makefile.exists():
-        makefile.write_text(
-            f"""\
+        if multi_lang:
+            stems = [stem for stem, _lang in variants]
+            lines: list[str] = []
+            lines.append(
+                ".PHONY: pdf watch clean "
+                + " ".join([f"pdf-{s}" for s in stems])
+                + " "
+                + " ".join([f"watch-{s}" for s in stems])
+                + " "
+                + " ".join([f"clean-{s}" for s in stems])
+            )
+            lines.append("")
+            lines.append("pdf:")
+            lines.append("\t" + " && ".join([f"./{s}_latex/scripts/build.sh {s}" for s in stems]))
+            lines.append("")
+            lines.append("watch:")
+            lines.append('\t@echo "Use one of: ' + " ".join([f"make watch-{s}" for s in stems]) + '"')
+            lines.append("")
+            lines.append("clean:")
+            lines.append("\t" + " && ".join([f"./{s}_latex/scripts/clean.sh {s}" for s in stems]))
+            lines.append("")
+            for s in stems:
+                lines.append(f"pdf-{s}:")
+                lines.append(f"\t./{s}_latex/scripts/build.sh {s}")
+                lines.append("")
+                lines.append(f"watch-{s}:")
+                lines.append(f"\t./{s}_latex/scripts/watch.sh {s}")
+                lines.append("")
+                lines.append(f"clean-{s}:")
+                lines.append(f"\t./{s}_latex/scripts/clean.sh {s}")
+                lines.append("")
+            makefile.write_text("\n".join(lines), encoding="utf-8")
+        else:
+            makefile.write_text(
+                f"""\
 .PHONY: pdf watch clean
 
 NAME := {args.name}
@@ -62,8 +114,8 @@ watch:
 clean:
 \t./$(LATEX_DIR)/scripts/clean.sh $(NAME)
 """,
-            encoding="utf-8",
-        )
+                encoding="utf-8",
+            )
         print(f"[OK] Created {makefile}")
     else:
         print(f"[SKIP] Exists {makefile}")
@@ -86,31 +138,33 @@ clean:
         print(f"[SKIP] Exists {index_md}")
 
     # Drop helper scripts into the LaTeX folder (so they travel with the project)
-    scripts_dir = latex_dir / "scripts"
-    scripts_dir.mkdir(parents=True, exist_ok=True)
+    for stem, _lang in variants:
+        latex_dir = base / f"{stem}_latex"
+        scripts_dir = latex_dir / "scripts"
+        scripts_dir.mkdir(parents=True, exist_ok=True)
 
-    for name, content in {
-        "build.sh": BUILD_SH,
-        "watch.sh": WATCH_SH,
-        "clean.sh": CLEAN_SH,
-        "sync_md_to_tex.py": SYNC_PY,
-    }.items():
-        out = scripts_dir / name
-        if not out.exists():
-            out.write_text(content, encoding="utf-8")
-            out.chmod(0o755)
-            print(f"[OK] Created {out}")
+        for name, content in {
+            "build.sh": BUILD_SH,
+            "watch.sh": WATCH_SH,
+            "clean.sh": CLEAN_SH,
+            "sync_md_to_tex.py": SYNC_PY,
+        }.items():
+            out = scripts_dir / name
+            if not out.exists():
+                out.write_text(content, encoding="utf-8")
+                out.chmod(0o755)
+                print(f"[OK] Created {out}")
+            else:
+                print(f"[SKIP] Exists {out}")
+
+        add_reference_out = scripts_dir / "add_reference.py"
+        if not add_reference_out.exists():
+            src = skill_dir / "scripts" / "project_add_reference.py"
+            add_reference_out.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+            add_reference_out.chmod(0o755)
+            print(f"[OK] Created {add_reference_out}")
         else:
-            print(f"[SKIP] Exists {out}")
-
-    add_reference_out = scripts_dir / "add_reference.py"
-    if not add_reference_out.exists():
-        src = skill_dir / "scripts" / "project_add_reference.py"
-        add_reference_out.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
-        add_reference_out.chmod(0o755)
-        print(f"[OK] Created {add_reference_out}")
-    else:
-        print(f"[SKIP] Exists {add_reference_out}")
+            print(f"[SKIP] Exists {add_reference_out}")
 
     return 0
 

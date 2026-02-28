@@ -30,8 +30,13 @@ For a base name like `paper` (same stem everywhere):
 - `paper_latex/src/meta.tex`, `paper_latex/src/abstract.tex`, `paper_latex/src/content.tex` (auto-synced from `paper.md`)
 - `paper_latex/build/` (aux/build artifacts)
 
+If multiple output languages are requested, create one full variant per language and add the language tag to filenames:
+- `paper_en.md`, `paper_en.pdf`, `paper_en_latex/`
+- `paper_ru.md`, `paper_ru.pdf`, `paper_ru_latex/`
+
 Initialize this layout by running the bundled initializer script:
 - `python3 ~/.codex/skills/stenographer/scripts/init_steno_paper.py paper --dir .`
+ - Multi-language example: `python3 ~/.codex/skills/stenographer/scripts/init_steno_paper.py paper --dir . --langs en,ru`
 
 Then build/watch:
 - `./paper_latex/scripts/build.sh paper` (build once; writes `paper.pdf`)
@@ -54,13 +59,15 @@ Notes:
 - Use `--deps full` when you want best extraction fidelity (creates `.stenographer_venv/` in project root).
 - Use `--title` if the source title is messy; this controls human-readable filenames.
 - Cite in Markdown as `[@bibkey]` so LaTeX can render `\\cite{bibkey}`.
+ - In multi-language projects, run the helper against the specific LaTeX variant using `--latex-dir`, e.g. `--latex-dir paper_en_latex`.
 
 ## Quick start (first 5 minutes)
 
 1. Ask for (or infer) the basics:
    - Topic + intended contribution (what is new/useful?)
    - Target audience / venue (blog post vs workshop paper vs internal memo)
-   - Language (RU/EN) and citation style (default: numeric / Vancouver)
+   - Output language(s) (one or more; e.g. `en`, `ru`, `de`). If multiple languages are requested, produce one full output variant per language and add the language tag to filenames (e.g. `paper_en.md`, `paper_en.pdf`, `paper_en_latex/`).
+   - Citation style (default: numeric)
    - Whether web browsing is allowed for this task (and any domains to prefer/avoid)
 2. Start capturing dictation into **Raw Notes** (verbatim, minimal edits).
 3. After each dictation chunk, respond with:
